@@ -1,0 +1,157 @@
+\documentclass[UTF8]{ctexart}
+\ctexset { section = { format={\Large \bfseries } } }
+\pagestyle{plain}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{geometry}
+\geometry{a4paper,scale=0.8}
+\usepackage{caption}
+\usepackage[linesnumbered,ruled]{algorithm2e}
+
+\title{\textbf{Intro to AI Project 1: Search}}
+\author{吴嘉骜 21307130203}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Search Algorithms}
+\setlength{\parindent}{0pt}
+Each search algorithm of this project (DFS, BFS, UCS, $\text{A}^*$) is similar in framework. 
+The main difference is the details of how the fringe is managed. The fringe tracks all the nodes we have generated but not yet expanded.
+To implement a graph search algorithm, we need to record the states we have visited.\\
+The following is the pseudo code of the search algorithm.\\
+\begin{algorithm}[H]
+  \DontPrintSemicolon
+    \SetAlgoLined
+    \KwIn {$Problem$}
+    \KwOut {$A \ solution $ or $Failure$}
+    Choose an appropriate data structure for $frontier$ and $visited$\;
+    Initialize $frontier$ using the initial state of $Problem$\;
+    Set $visited$ to empty\;
+    \While{$frontier$ is not empty}{
+      Pop a node $node$ from $frontier$ according to some rule\;
+      \If{$node$ contains a goal state} {
+        \Return $Solution$ \;
+      }
+      \If {$node$ is in $visited$} {
+        Continue \;
+      }
+      Add $node$ to $visited$ \;
+      Expand $node$ to get the set of state successors $S$ \;
+      Add all unvisited $s$ in $S$ to $frontier$ \;
+    }
+    \Return $Failure$ \;
+    \caption{Graph Search algorithm}
+  \end{algorithm}
+We define a data structure $\textbf{Node}$ ahead of the algorithms to represent a node in the search tree with four components:\\
+$\textbf{state}$: the state to which the node corresponds;\\
+$\textbf{parent}$: the node in the tree that generated this node;\\
+$\textbf{action}$: the action that was applied to the parent's state to generate this node;\\
+$\textbf{path\_cost}$: the total cost of the path from the initial state to this node.\\
+Also, we need a data structure to store the $frontier$, which depends on the search algorithm itself. We use $\textbf{\textit{Stack}}$, $\textbf{\textit{Queue}}$ and $\textbf{\textit{PriorityQueue}}$ which are predefined in $util.py$.\\
+We also use $visited$ to store the states we have visited. Here it refers to the states of the expanded nodes. We check a node whether it is in $visited$ double times, first when we pop a node from $frontier$, and second when we add the node to $frontier$.
+This can help us to do less redundant work.\\
+Later in UCS, where we need to update the path cost of the nodes in the $frontier$ when we find a better path to the node,
+we change the $visited$ set to $reached$ dictionary to store the mappings from states to nodes with lowest path cost. We check every newly-generated node, whether or not it has been expanded.\\
+Although algorithm frameworks are similar, there are still some details that differ in the implementation of each algorithm, which we will specify as follows.\\
+\textbf{Question1: Depth First Search}\\
+In DFS, we use $\textbf{\textit{Stack}}$ to store the nodes in the $frontier$. The $\textbf{\textit{Stack}}$ is a LIFO data structure, satisfying the principle of DFS.
+The path cost is not considered, and we set it to 0. DFS cannot guarantee the optimality of the solution, but can save a lot of memory. On meduimMaze, 
+DFS expanded 130 nodes and scored 380 with total cost 130, returning a very long path.\\
+\textbf{Question2: Breadth First Search}\\
+In BFS, we use $\textbf{\textit{Queue}}$ to store the nodes in the $frontier$. The $\textbf{\textit{Queue}}$ is a FIFO data structure, satisfying the principle of BFS.
+The path cost is also not considered. In the implementation, we check whether a node is a solution as soon as it is generated rather than until it is popped from the $frontier$.
+BFS can guarantee the optimality of the solution, but it will expand a lot of nodes and consume a lot of memory. On meduimMaze, BFS expanded 267 nodes and scored 442 with tital cost 68.\\
+\textbf{Question3: Uniform Cost Search}\\
+In UCS, we use $\textbf{\textit{PriorityQueue}}$ to store the nodes in the $frontier$. The $\textbf{\textit{PriorityQueue}}$ is a data structure that pops the node with the lowest path cost, satisfying the principle of UCS.
+The path cost is of course considered. We use the $path\_cost$ of the node as the priority of the node in the $\textbf{\textit{PriorityQueue}}$. To make sure that the state with the lowest path cost is popped first, 
+we update the node in the $frontier$ when we find a better path to the state, as recounted in the previous paragraph.
+UCS can guarantee the optimality of the solution, scoring 442 with total cost 68 and 269 expanded nodes on meduimMaze.\\
+\textbf{Question4: $\text{A}^*$ Search}\\
+In $\text{A}^*$, we also use $\textbf{\textit{PriorityQueue}}$ to store the nodes in the $frontier$. The $Node$ class has a new attribute $heuristic_val$, which is the heuristic value of the state. $\text{A}^*$ considers 
+the priority of the node in the $\textbf{\textit{PriorityQueue}}$ as the sum of the $path\_cost$ and $heuristic\_val$. With an admissible and consistent heuristic, $\text{A}^*$ can guarantee the optimality of the solution.
+So we do not need to update the node in the $frontier$. On meduimMaze, $\text{A}^*$ expanded 221 nodes and scored 442 with total cost 68.\\
+We can see that on openMaze, BFS, UCS and $\text{A}^*$ all find the best path, while DFS finds a very long path but with less nodes expanded.
+\section{Corners Problem}
+\textbf{Question5: Finding All the Corners}\\
+The goal of corners problem is to find the shortest path through the maze that touches all four corners. Therefore, we need to define a new state representation.
+The state space consists of a tuple ($position$ and $corner\_state$), where $corner\_state$ records whether four corners have been visited in a dummy tuple - 0 means no and 1 yes.
+Thus, the $\textbf{startState}$ is ($start\_position$, (0, 0, 0, 0)) and the $\textbf{goalState}$ is that the sum of corners tuple equals 4. To $\textbf{getSuccessors}$, we  check whether
+the next position is a corner. If so, we change 0 corresponding to this corner to 1 and leave the rest unchanged; otherwise retain the $corner\_state$.\\
+\textbf{Question6: Heuristic}\\
+Consider a relaxed problem: find the shortest path that touches all four corners, and we can move through walls (but still in four directions). A solution is that we move to the nearest untouched corner sequentially.
+An algorithm to find the solution is as follows:\\
+\begin{algorithm}[H]
+  \DontPrintSemicolon
+    \SetAlgoLined
+    \KwIn {$Problem, State$}
+    \KwOut {$Heauristic value$}
+    $(curr\_pos , cornerState) \gets startState$\;
+    Initialize $heauristic$ to 0\;
+    \While{there exist unvisited corners}{
+      Find the unvisited corner $c$ that has the smallest Manhattan distance from $curr\_pos$\;
+      Move to $c$, update $curr\_pos$ and $corner\_state$\;
+      $heauristic \gets heauristic + distance(curr\_pos, c)$\;
+    }
+    \Return $heauristic$ \;
+    \caption{Corners problem heauristic}
+  \end{algorithm}
+\textbf{Analysis of Heuristic}\\
+\textbf{Admissiblity}: the heauristic function value is a solution of the relaxed problem, so it is a lower bound of the cost of the original problem, then it is admissible.\\
+\textbf{Consistency}:\\ 
+Consider a node $n$ and its successor $n'$. Suppose the closest corner to $n$ is $c$, and the closest corner to $n'$ is $c'$. We use $d(n, c)$ to denote the Manhattan distance from $n$ to $c$.\\
+Then it is easy to verify that from $n$ to $n'$, $d(n', c') = d(n,c') \pm 1$ for a fixed $c'$.\\
+Thus, $h(n)-h(n') = d(n,c)-d(n',c') \leq d(n,c')-d(n',c') \leq 1 = cost(n,n')$.
+Note that the cost of every movement is always 1, so the heauristic is consistent.\\
+In the implementation, we use the $\textbf{\textit{Counter}}$ data structure defined in $util.py$, which is an extension of $\textbf{\textit{dict}}$.
+We use it to record the mapping from every unvisited corner to the Manhattan distance between it and the current position.\\
+On mediumCorners, $\text{A}^*$ search with this heauristic expands 692 nodes and scores 434 with a total cost 106, while BFS expands 1921 nodes with the same optimal path.
+We can see that heuristics (used with $\text{A}^*$ search) can reduce the amount of searching required.
+\section{Food Search Problem}                                                     
+\textbf{Question7: Eating All The Dots}\\
+The goal of the food search problem is to find the shortest path that collects all of the food in the Pacman world. To devise an admissible heuristic, we consider a relaxed problem:
+find the shortest path to the farthest food (i.e. with the max shortest path cost among all food dots). A solution is calculating every food dot's real distance (shortest path cost) from the current position by $\text{A}^*$ search,
+and assign the maximum to the heauristic value. A detailed algorithm is as follows:\\
+\begin{algorithm}[H]
+  \DontPrintSemicolon
+    \SetAlgoLined
+    \KwIn {$Problem, State$}
+    \KwOut {$Heauristic value$}
+    $(pos , food\_grid) \gets startState$\;
+    Initialize $heauristic$ to 0\;
+    \For {every food dot $food$ in $food\_grid$}{
+      $searchProblem$ $\gets$ a search problem with $pos$ as the start state and $food$ as the goal\;
+      $distances \gets astarSearch(searchProblem)$\;
+    }
+    $heauristic \gets max(distances)$\;
+    \If {all food have been eaten}{
+      \Return $0$ \;
+    }
+    \Return $heauristic$ \;
+    \caption{Food search problem heauristic}
+\end{algorithm}
+
+\textbf{Analysis of Heuristic}\\
+\textbf{Admissiblity}: the heauristic function value is a solution of the relaxed problem, so it is a lower bound of the cost of the original problem, then it is admissible.\\
+\textbf{Consistency}: \\
+Consider a node $n$ and its successor $n'$. Suppose the farthest food to $n$ is $f$, and $n'$ is $f'$. We use $p(n, f)$ to denote the real path distance from $n$ to $f$.\\
+Then $n\to n' \to \cdots \to f$ is a path with cost $p(n',f)+1$, so $p(n,f) \leq p(n',f) + 1$ because $p(n,f)$ is the shortest path distance.
+Thus, $h(n)-h(n') = p(n,f)-p(n',f') \leq p(n,f)- p(n',f) \leq 1 = cost(n,n')$.
+Note that the cost of every movement is always 1, so the heauristic is consistent.\\
+On trickySearch, $\text{A}^*$ search with this heauristic expands 4137 nodes and scores 570 with a total cost 60.
+\section{Closest dot Search}
+\textbf{Question8: Suboptimal Search}\\
+This problem goal is to eat the closest dot. So $\textbf{isGoalState}$ should return true when the current position is a food dot and false otherwise. As BFS always finds the closest node which achieves the goal, the food returned by BFS for the first time should be the nearest dot. So in $\textbf{findPathToClosestDot}$ we
+just return the path given by BFS.\\
+On bigSearch, suboptimal search scores 2360 with a total cost 350.\\
+Suboptimal search does not always find the optimal solution. Consider an example where there are 4 food dots $A(0,0), B(3,0), C(3,1$) and $D(3,2)$. The initial position is $P(2,0)$. Then the suboptimal search gives $P \to B\to C \to D \to A$, which takes 1+1+1+5=8,
+but the optimal path is $P \to A \to B \to C \to D$, which takes 2+3+1+1=7.\\
+
+\end{document}
